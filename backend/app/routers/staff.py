@@ -1,52 +1,103 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from uuid import UUID
 
 from app.database.session import get_db
+from app.models.staff import Staff
 from app.schemas.staff import StaffCreate, StaffUpdate, StaffResponse
-from app.services.staff_service import (
-    get_all_staff,
-    create_staff,
-    update_staff,
-    deactivate_staff,
-)
-from backend.app.core.auth import get_current_user
+from app.core.tenant import get_current_company_id
+from app.dependencies.auth import get_current_user
 
-router = APIRouter()
+router = APIRouter(prefix="/staff", tags=["Staff"])
 
 
-@router.get("/", response_model=List[StaffResponse])
+@router.get("/", response_model=list[StaffResponse])
 def list_staff(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    company_id: UUID = Depends(get_current_company_id),
 ):
-    return get_all_staff(db, current_user.company_id)
+    return (
+        db.query(Staff)
+        .filter(
+            Staff.company_id == company_id,
+            Staff.is_active == True,
+        )
+        .all()
+    )
 
 
 @router.post("/", response_model=StaffResponse)
-def add_staff(
-    data: StaffCreate,
+def create_staff(
+    payload: StaffCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    company_id: UUID = Depends(get_current_company_id),
 ):
-    return create_staff(db, current_user.company_id, data)
+    staff = Staff(
+        **payload.dict(),
+        company_id=company_id,
+    )
+
+    db.add(staff)
+    db.commit()
+    db.refresh(staff)
+
+    return staff
 
 
 @router.put("/{staff_id}", response_model=StaffResponse)
-def edit_staff(
-    staff_id: int,
-    data: StaffUpdate,
+def update_staff(
+    staff_id: UUID,
+    payload: StaffUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    company_id: UUID = Depends(get_current_company_id),
 ):
-    return update_staff(db, current_user.company_id, staff_id, data)
+    staff = (
+        db.query(Staff)
+        .filter(
+            Staff.id == staff_id,
+            Staff.company_id == company_id,
+        )
+        .first()
+    )
+
+    if not staff:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Staff not found",
+        )
+
+    for key, value in payload.dict(exclude_unset=True).items():
+        setattr(staff, key, value)
+
+    db.commit()
+    db.refresh(staff)
+
+    return staff
 
 
 @router.delete("/{staff_id}")
-def delete_staff(
-    staff_id: int,
+def deactivate_staff(
+    staff_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
+    company_id: UUID = Depends(get_current_company_id),
 ):
-    deactivate_staff(db, current_user.company_id, staff_id)
-    return {"message": "Staff deactivated"}
+    staff = (
+        db.query(Staff)
+        .filter(
+            Staff.id == staff_id,
+            Staff.company_id == company_id,
+        )
+        .first()
+    )
+
+    if not staff:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Staff not found",
+        )
+
+    staff.is_active = False
+
+    db.commit()
+
+    return {"message": "Staff deactivated successfully"}
