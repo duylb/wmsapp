@@ -7,7 +7,7 @@ from app.services.subscription_service import (
     get_subscription,
     create_subscription,
 )
-from app.dependencies.auth import get_current_user
+from backend.app.core.auth import get_current_user
 
 router = APIRouter()
 

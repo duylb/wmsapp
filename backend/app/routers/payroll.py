@@ -9,7 +9,7 @@ from app.schemas.payroll import (
 )
 from app.services.payroll_service import generate_monthly_payroll
 from app.models.payroll import PayrollPeriod, PayrollRecord
-from app.dependencies.auth import get_current_user
+from backend.app.core.auth import get_current_user
 
 router = APIRouter()
 

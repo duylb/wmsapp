@@ -8,7 +8,7 @@ from app.services.shift_service import (
     get_all_shifts,
     update_shift_duration,
 )
-from app.dependencies.auth import get_current_user
+from backend.app.core.auth import get_current_user
 
 router = APIRouter()
 

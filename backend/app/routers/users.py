@@ -6,7 +6,7 @@ from app.database.session import get_db
 from app.schemas.user import UserCreate, UserResponse
 from app.models.user import User
 from app.core.security import hash_password
-from app.dependencies.auth import get_current_user
+from backend.app.core.auth import get_current_user
 
 router = APIRouter()
 

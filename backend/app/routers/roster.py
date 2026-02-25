@@ -9,7 +9,7 @@ from app.services.roster_service import (
     upsert_roster,
     get_roster_range,
 )
-from app.dependencies.auth import get_current_user
+from backend.app.core.auth import get_current_user
 
 router = APIRouter()
 

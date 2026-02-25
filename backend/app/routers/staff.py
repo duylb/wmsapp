@@ -10,7 +10,7 @@ from app.services.staff_service import (
     update_staff,
     deactivate_staff,
 )
-from app.dependencies.auth import get_current_user
+from backend.app.core.auth import get_current_user
 
 router = APIRouter()
 
