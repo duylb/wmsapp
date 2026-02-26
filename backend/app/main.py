@@ -17,20 +17,17 @@ from app.routers import (
     subscription,
     billing,
     super_admin,
+    websocket,
 )
 
-app = FastAPI(
-    title=settings.APP_NAME,
-    version="1.0.0",
-    docs_url=None if settings.ENVIRONMENT == "production" else "/docs",
-)
+app = FastAPI(title=settings.APP_NAME)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # lock down in prod
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,6 +45,7 @@ app.include_router(shifts.router, prefix=settings.API_PREFIX)
 app.include_router(subscription.router, prefix=settings.API_PREFIX)
 app.include_router(billing.router, prefix=settings.API_PREFIX)
 app.include_router(super_admin.router, prefix=settings.API_PREFIX)
+app.include_router(websocket.router)
 
 @app.get("/")
 def root():
