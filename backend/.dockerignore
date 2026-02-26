@@ -1,1 +1,10 @@
-.dockerignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+venv
+.git
+.gitignore
+tests
+node_modules

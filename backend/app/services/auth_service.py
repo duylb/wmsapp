@@ -1,57 +1,58 @@
+import secrets
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
 
-from app.models.company import Company
 from app.models.user import User
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import get_password_hash
+from app.tasks.email_tasks import send_email_task
 
 
-def register_company(db: Session, company_name: str, company_slug: str,
-                     full_name: str, email: str, password: str):
+def generate_token():
+    return secrets.token_urlsafe(32)
 
-    existing = db.query(Company).filter(Company.slug == company_slug).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Company slug already exists")
 
-    company = Company(name=company_name, slug=company_slug)
-    db.add(company)
+def create_email_verification(user: User, db: Session):
+    token = generate_token()
+    user.verification_token = token
+    user.verification_token_expires = datetime.utcnow() + timedelta(hours=24)
     db.commit()
-    db.refresh(company)
 
-    user = User(
-        company_id=company.id,
-        full_name=full_name,
-        email=email,
-        password_hash=hash_password(password),
-        role="owner",
+    verify_link = f"https://your-frontend.com/verify-email?token={token}"
+
+    send_email_task.delay(
+        user.email,
+        "Verify your account",
+        f"Click to verify your account:\n{verify_link}",
     )
 
-    db.add(user)
+
+def create_password_reset(user: User, db: Session):
+    token = generate_token()
+    user.reset_token = token
+    user.reset_token_expires = datetime.utcnow() + timedelta(hours=2)
     db.commit()
 
-    token = create_access_token({
-        "user_id": user.id,
-        "company_id": company.id,
-        "role": user.role,
-    })
+    reset_link = f"https://your-frontend.com/reset-password?token={token}"
 
-    return token
+    send_email_task.delay(
+        user.email,
+        "Reset your password",
+        f"Click to reset your password:\n{reset_link}",
+    )
 
 
-def login_user(db: Session, email: str, password: str):
+def reset_password(token: str, new_password: str, db: Session):
+    user = db.query(User).filter(User.reset_token == token).first()
 
-    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return None
 
-    if not user or not verify_password(password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
-        )
+    if user.reset_token_expires < datetime.utcnow():
+        return None
 
-    token = create_access_token({
-        "user_id": user.id,
-        "company_id": user.company_id,
-        "role": user.role,
-    })
+    user.hashed_password = get_password_hash(new_password)
+    user.reset_token = None
+    user.reset_token_expires = None
 
-    return token
+    db.commit()
+    return user

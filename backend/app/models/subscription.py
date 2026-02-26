@@ -1,23 +1,28 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
-from sqlalchemy.orm import relationship
+import uuid
+from sqlalchemy import Column, String, DateTime, Integer
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
-from app.database.session import Base
+from app.database.base import Base
 
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), unique=True)
+    company_id = Column(UUID(as_uuid=True), index=True, nullable=False)
 
-    plan = Column(String(50), nullable=False)  # starter | pro | enterprise
-    status = Column(String(50), nullable=False)  # active | trial | canceled
+    stripe_subscription_id = Column(String, nullable=True)
+    stripe_usage_item_id = Column(String, nullable=True)
 
-    stripe_customer_id = Column(String(255))
-    current_period_end = Column(DateTime)
+    plan = Column(String, default="starter")
+
+    status = Column(String, default="trialing")
+
+    staff_limit = Column(Integer, default=5)
+
+    trial_end = Column(DateTime, nullable=True)
+    current_period_end = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    company = relationship("Company")

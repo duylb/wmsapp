@@ -1,24 +1,19 @@
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
-
 from app.models.subscription import Subscription
+from app.core.plans import PLANS
 
 
-def get_subscription(db: Session, company_id: int):
-    return db.query(Subscription).filter(
-        Subscription.company_id == company_id
-    ).first()
+def create_subscription_for_company(db: Session, company_id: str, plan: str):
+    plan_data = PLANS.get(plan)
 
-
-def create_subscription(db: Session, company_id: int, plan: str):
-    existing = get_subscription(db, company_id)
-    if existing:
-        raise HTTPException(status_code=400, detail="Subscription already exists")
+    if not plan_data:
+        raise ValueError("Invalid plan")
 
     subscription = Subscription(
         company_id=company_id,
         plan=plan,
-        status="trial"
+        staff_limit=plan_data["staff_limit"],
+        status="active",
     )
 
     db.add(subscription)
@@ -28,14 +23,22 @@ def create_subscription(db: Session, company_id: int, plan: str):
     return subscription
 
 
-def update_subscription_status(db: Session, company_id: int, status: str):
-    subscription = get_subscription(db, company_id)
+def update_subscription_plan(db: Session, company_id: str, plan: str):
+    subscription = (
+        db.query(Subscription)
+        .filter(Subscription.company_id == company_id)
+        .first()
+    )
 
     if not subscription:
-        raise HTTPException(status_code=404, detail="Subscription not found")
+        raise ValueError("Subscription not found")
 
-    subscription.status = status
+    plan_data = PLANS.get(plan)
+    if not plan_data:
+        raise ValueError("Invalid plan")
+
+    subscription.plan = plan
+    subscription.staff_limit = plan_data["staff_limit"]
+
     db.commit()
-    db.refresh(subscription)
-
     return subscription
